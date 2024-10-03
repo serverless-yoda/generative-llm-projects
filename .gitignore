@@ -169,3 +169,6 @@ products_vectorstore/
 
 # And ignore any pickle files made during the course
 *.pkl
+
+# ignore knowledge base file
+kb.md

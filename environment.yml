@@ -1,4 +1,4 @@
-name: llms
+name: generative-llm-projects
 channels:
   - conda-forge
   - defaults
