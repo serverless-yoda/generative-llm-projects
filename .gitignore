@@ -172,3 +172,6 @@ products_vectorstore/
 
 # ignore knowledge base file
 kb.md
+
+# ignore images
+*.png

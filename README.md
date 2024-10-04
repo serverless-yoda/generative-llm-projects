@@ -5,4 +5,5 @@ Create environment: ``conda env create -f environment.yml``
 
 ## Projects
 ``1``: [Web scraper and summary](1-webscrape-summarizer.ipynb)
+``2``: [Web scraper and Flyers creator](2-webscrape-flyer-designer.ipynb)
 
