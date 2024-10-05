@@ -4,6 +4,10 @@ Build and fine-tune sophisticated models to solve real-world problems using LLM 
 Create environment: ``conda env create -f environment.yml``
 
 ## Projects
-``1``: [Web scraper and summary](1-webscrape-summarizer.ipynb)
+``1``: [Web scraper and summarization](1-webscrape-summarizer.ipynb)
+
 ``2``: [Web scraper and Flyers creator](2-webscrape-flyer-designer.ipynb)
+
+
+``3``: [Joke App](3-jokes-creator.ipynb)
 
