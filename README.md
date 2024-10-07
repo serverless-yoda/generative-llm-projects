@@ -11,3 +11,6 @@ Create environment: ``conda env create -f environment.yml``
 
 ``3``: [Joke App](3-jokes-creator.ipynb)
 
+``4``: [Flyers Creator App using Gradio](4-gradio-flyer-designer.ipynb)
+
+
