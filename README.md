@@ -8,12 +8,12 @@ Create environment: ``conda env create -f environment.yml``
 
 ``2``: [Web scraper and Flyers creator](2-webscrape-flyer-designer.ipynb)
 
-
 ``3``: [Joke App](3-jokes-creator.ipynb)
 
-``4``: [Flyers Creator App using Gradio](4-gradio-flyer-designer.ipynb)
+``4``: [Flyers Creator](4-gradio-flyer-designer.ipynb)
 
-``5``: [Chatbot using Gradio](5-gradio-chatbot.ipynb)
+``5``: [Conversational Chatbot](5-gradio-chatbot.ipynb)
 
+``6``: [Ticketing Chatbot](6-ticketing-chatbot.ipynb)
 
 
