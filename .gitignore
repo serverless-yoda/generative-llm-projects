@@ -175,3 +175,6 @@ kb.md
 
 # ignore images
 *.png
+
+# audio
+/audio
