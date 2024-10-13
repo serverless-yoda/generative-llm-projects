@@ -18,4 +18,7 @@ Create environment: ``conda env create -f environment.yml``
 
 ``7``: [Multi-modal Ticketing Chatbot](7-multi-modal-ticketing-chatbot.ipynb)
 
+``8``: [Pipeline, Transformers and Diffusers](8-pipeline-playground.ipynb)
+
+
 
