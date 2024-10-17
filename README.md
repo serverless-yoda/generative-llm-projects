@@ -18,13 +18,19 @@ Create environment: ``conda env create -f environment.yml``
 
 ``7``: [Multi-modal Ticketing Chatbot](7-multi-modal-ticketing-chatbot.ipynb)
 
-``8``: [Pipeline playground](8-pipeline-playground.ipynb)
+``8``: [Chroma DB](10-vector-db.ipynb)
 
-``9``: [Tokenizer playground](9-tokenizer-playground.ipynb)
 
-``10``: [Chroma DB](10-vector-db.ipynb)
 
-``11``: [Model playground](11-model-playground.ipynb)
+
+
+### Playgrounds
+``1``: [Pipeline playground](/playground/pipeline-playground.ipynb)
+
+``2``: [Tokenizer playground](/playground/tokenizer-playground.ipynb)
+
+``3``: [Model playground](/playground/model-playground.ipynb)
+
 
 
 
