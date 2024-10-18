@@ -18,7 +18,9 @@ Create environment: ``conda env create -f environment.yml``
 
 ``7``: [Multi-modal Ticketing Chatbot](7-multi-modal-ticketing-chatbot.ipynb)
 
-``8``: [Chroma DB](10-vector-db.ipynb)
+``8``: [Audio Transcriber](8-audio-to-text.ipynb)
+
+``10``: [Chroma DB](10-vector-db.ipynb)
 
 
 
