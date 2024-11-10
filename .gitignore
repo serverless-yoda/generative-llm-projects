@@ -171,7 +171,8 @@ products_vectorstore/
 *.pkl
 
 # ignore knowledge base file
-kb.md
+kb-llm.md
+kb-azureai.md
 
 # ignore images
 *.png
@@ -184,3 +185,6 @@ kb.md
 
 # images
 /images
+
+# AzureAI
+/azure-ai
