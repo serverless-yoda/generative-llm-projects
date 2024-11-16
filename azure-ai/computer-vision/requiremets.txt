@@ -1,0 +1,6 @@
+python-dotenv
+azure-cognitiveservices-vision-computervision 
+opencv-python 
+pillow 
+numpy 
+msrest
