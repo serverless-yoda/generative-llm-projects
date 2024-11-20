@@ -204,15 +204,7 @@ class PPEDetector:
         
         return output
 
-    # def start_detection(self):
-    #     """Start detection process"""
-    #     self.is_detecting = True
-    #     return "Detection Started"
-
-    # def stop_detection(self):
-    #     """Stop detection process"""
-    #     self.is_detecting = False
-    #     return "Detection Stopped"
+    
 
     def start_detection(self):
         self.is_detecting = True
@@ -283,9 +275,6 @@ def create_interface():
         # Input and Output Video Components
         with gr.Tabs():
             with gr.TabItem("Webcam"):
-                # Camera feed
-                #webcam_input = gr.Image(sources=["webcam"], streaming=True, height=180, width=180)
-                #webcam_output = gr.Image(label="Detection Output", streaming=True)
                 with gr.Row():
                     # Camera feed
                     webcam_input = gr.Image(sources=["webcam"], streaming=True, height=400, width=180)
@@ -319,15 +308,6 @@ def create_interface():
         # Set initial state - detect button enabled, stop button disabled
         detect_btn.interactive = True
         stop_btn.interactive = False
-        # detect_btn.click(
-        #     fn=[detector.start_detection], 
-        #     outputs=alert
-        # )
-        
-        # stop_btn.click(
-        #     fn=[detector.stop_detection],
-        #     outputs=alert
-        # )
         
         ppe_items.change(detector.update_ppe_items, inputs=[ppe_items], outputs=alert)
         
@@ -343,19 +323,7 @@ def create_interface():
                 stream_every=1
         )
 
-        # Detection Logic
-        # webcam_input.change(
-        #     fn=detector.detect_ppe, 
-        #     inputs=[webcam_input, ppe_dropdown],
-        #     outputs=webcam_output
-        # )
-        
-        # video_input.change(
-        #     fn=detector.detect_ppe, 
-        #     inputs=[video_input, ppe_dropdown],
-        #     outputs=video_output
-        # )
-    
+       
     return demo
 
 # Launch the interface
