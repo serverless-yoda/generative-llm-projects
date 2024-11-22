@@ -12,11 +12,54 @@ import threading
 from datetime import datetime
 import logging
 import tempfile
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import base64
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
-
-# Load environment variables
 load_dotenv()
+
+class VideoPlayer:
+    def __init__(self):
+        self.cap = None
+        self.is_playing = False
+        self.current_frame_number = 0
+        self.total_frames = 0
+        self.fps = 0
+        
+    def load_video(self, video_path):
+        """Load a video file and get its properties."""
+        if self.cap is not None:
+            self.cap.release()
+            
+        self.cap = cv2.VideoCapture(video_path)
+        self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+        self.current_frame_number = 0
+        return self.total_frames, self.fps
+        
+    def get_frame(self, frame_number=None):
+        """Get a specific frame or the next frame."""
+        if self.cap is None:
+            return None
+            
+        if frame_number is not None:
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            self.current_frame_number = frame_number
+        
+        ret, frame = self.cap.read()
+        if ret:
+            self.current_frame_number += 1
+            return frame
+        return None
+        
+    def release(self):
+        """Release video resources."""
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+            self.is_playing = False
 
 class PPEDetector:
     def __init__(self):
@@ -35,7 +78,6 @@ class PPEDetector:
             "Reflective vests"
         ]
                   
-        """Initialize the PPE detector with Azure credentials."""
         self.subscription_key = os.getenv('AZURE_SUBSCRIPTION_KEY')
         self.endpoint = os.getenv('AZURE_ENDPOINT')
         
@@ -51,31 +93,25 @@ class PPEDetector:
         self.alert_callback = None
         self.is_detecting = False
         self.cap = None
-        self.out = None
-        self.processed_video_path = None
-
+        self.video_player = VideoPlayer()
+        self.current_video_path = None
+        self.is_playing = False
+        self.processing_thread = None
+        
     def set_alert_callback(self, callback):
-        """Set callback for alerts."""
         self.alert_callback = callback
 
     def add_alert(self, msg):
-        """Add alert message."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         alert = f"[{timestamp}] {msg}"
         self.alerts.append(alert)
-        return "\n".join(self.alerts[-5:])  # Show last 5 alerts
+        return "\n".join(self.alerts[-5:])
 
-    def set_ppe_items(self, items):
-        """Set the PPE items to detect."""
-        self.selected_ppe = items
-    
     def update_ppe_items(self, items):
-        """Update PPE items to detect."""
-        self.set_ppe_items([item.lower() for item in items])
+        self.selected_ppe = [item.lower() for item in items]
         return f"Now detecting: {', '.join(items)}"
 
     def analyze_frame(self, frame):
-        """Analyze a single frame for PPE detection."""
         if frame is None or not self.is_detecting:
             return frame
         
@@ -94,7 +130,6 @@ class PPEDetector:
             if detect_result.objects:
                 for obj in detect_result.objects:
                     object_name = obj.object_property.lower()
-                    logging.info(f'object detected: {object_name}')
                     
                     # Skip if not in selected items
                     if self.selected_ppe and object_name not in self.selected_ppe:
@@ -128,12 +163,13 @@ class PPEDetector:
                         2
                     )
             
-            # Check for missing PPE and trigger alert
-            if self.selected_ppe and self.alert_callback:
+            # Check for missing PPE
+            if self.selected_ppe:
                 missing_ppe = [item for item in self.selected_ppe if item not in detected_items]
                 if missing_ppe:
                     alert_msg = f"⚠️ Missing PPE: {', '.join(missing_ppe)}"
-                    self.alert_callback(alert_msg)
+                    if self.alert_callback:
+                        self.alert_callback(alert_msg)
                     
                     # Add alert text to frame
                     cv2.putText(
@@ -149,92 +185,101 @@ class PPEDetector:
             return annotated_frame
             
         except Exception as e:
-            print(f"Error analyzing frame: {str(e)}")
+            logging.error(f"Error analyzing frame: {str(e)}")
             return frame
 
-    def process_video(self, video_path):
-        """Process uploaded video file for PPE detection."""
+    async def play_video_with_detection(self, video_path, progress=gr.Progress()):
+        """Play video with real-time PPE detection."""
         if not video_path:
-            return None
+            return None, "No video selected"
             
         try:
+            # Load video
+            self.current_video_path = video_path
+            total_frames, fps = self.video_player.load_video(video_path)
+            self.is_detecting = True
+            self.is_playing = True
+            
             # Create temporary file for output
             temp_output = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-            self.processed_video_path = temp_output.name
+            output_path = temp_output.name
             
-            # Open video file
-            cap = cv2.VideoCapture(video_path)
-            if not cap.isOpened():
-                raise ValueError("Could not open video file")
-                
             # Get video properties
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = int(cap.get(cv2.CAP_PROP_FPS))
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            width = int(self.video_player.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(self.video_player.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             
             # Initialize video writer
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(self.processed_video_path, fourcc, fps, (width, height))
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
-            # Process each frame
             frame_count = 0
-            self.is_detecting = True
+            loop = asyncio.get_event_loop()
             
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
+            # Process frames
+            while self.is_playing and frame_count < total_frames:
+                frame = self.video_player.get_frame()
+                if frame is None:
                     break
                     
-                # Process frame
-                processed_frame = self.analyze_frame(frame)
+                # Process frame in thread pool
+                processed_frame = await loop.run_in_executor(
+                    ThreadPoolExecutor(),
+                    self.analyze_frame,
+                    frame
+                )
+                
                 out.write(processed_frame)
+                frame_count += 1
                 
                 # Update progress
-                frame_count += 1
-                progress = (frame_count / total_frames) * 100
-                if self.alert_callback:
-                    self.alert_callback(f"Processing video: {progress:.1f}%")
-                    
-            # Clean up
-            cap.release()
-            out.release()
-            self.is_detecting = False
-            
-            if self.alert_callback:
-                self.alert_callback("Video processing complete")
+                progress((frame_count / total_frames), desc="Processing video")
                 
-            return self.processed_video_path
+                # Control playback speed
+                await asyncio.sleep(1/fps)
+            
+            # Cleanup
+            out.release()
+            self.video_player.release()
+            self.is_detecting = False
+            self.is_playing = False
+            
+            if frame_count == 0:
+                return None, "Error processing video"
+                
+            return output_path, "Video processing complete"
             
         except Exception as e:
-            if self.alert_callback:
-                self.alert_callback(f"Error processing video: {str(e)}")
-            return None
+            self.is_detecting = False
+            self.is_playing = False
+            error_msg = f"Error processing video: {str(e)}"
+            logging.error(error_msg)
+            return None, error_msg
+
+    def stop_video(self):
+        """Stop video playback and processing."""
+        self.is_playing = False
+        self.is_detecting = False
+        self.video_player.release()
+        return None, "Video stopped"
 
     def start_detection(self):
+        """Start webcam detection."""
         self.is_detecting = True
         try:
             self.cap = cv2.VideoCapture(0)
             if not self.cap.isOpened():
                 return "Error: Could not open webcam", gr.update(interactive=True), gr.update(interactive=False)
             
-            frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            self.out = cv2.VideoWriter('recording.avi', 
-                                     cv2.VideoWriter_fourcc(*'XVID'), 
-                                     20.0, 
-                                     (frame_width, frame_height))
             return "Detection started", gr.update(interactive=False), gr.update(interactive=True)
         except Exception as e:
             return f"Error: {str(e)}", gr.update(interactive=True), gr.update(interactive=False)
 
     def stop_detection(self):
+        """Stop webcam detection."""
         self.is_detecting = False
         try:
             if self.cap:
                 self.cap.release()
-            if self.out:
-                self.out.release()
             cv2.destroyAllWindows()
             return "Detection stopped", gr.update(interactive=True), gr.update(interactive=False)
         except Exception as e:
@@ -247,7 +292,7 @@ def create_interface():
     with gr.Blocks(title="Workplace PPE Detector") as demo:
         gr.Markdown("""
             # PPE Detection System
-            This system detects the following Personal Protective Equipment:            
+            This system detects Personal Protective Equipment in real-time.
             """)
         
         # PPE Selection
@@ -260,7 +305,10 @@ def create_interface():
         # Alert component
         alert = gr.Textbox(label="Status", interactive=False)
         
-        
+        # Control Buttons for Webcam
+        with gr.Row():
+            detect_btn = gr.Button("Start Webcam", variant="primary")
+            stop_btn = gr.Button("Stop Webcam", variant="stop")
 
         # Input and Output Video Components
         with gr.Tabs():
@@ -268,17 +316,14 @@ def create_interface():
                 with gr.Row():
                     webcam_input = gr.Image(sources=["webcam"], streaming=True, height=400, width=180)
                     webcam_output = gr.Image(label="Detection Output", streaming=True, height=400, width=180)
-
-            # Control Buttons
-            with gr.Row():
-                detect_btn = gr.Button("Start Webcam", variant="primary")
-                stop_btn = gr.Button("Stop Webcam", variant="stop")
             
             with gr.TabItem("Video Upload"):
                 with gr.Row():
                     video_input = gr.Video(label="Upload Video")
                     video_output = gr.Video(label="Processed Video")
-                process_btn = gr.Button("Process Video", variant="primary")
+                with gr.Row():
+                    play_btn = gr.Button("Play with Detection", variant="primary")
+                    stop_video_btn = gr.Button("Stop Video", variant="stop")
         
         # Button Interactions
         def start_detection():
@@ -288,12 +333,6 @@ def create_interface():
         def stop_detection():
             stop_result = detector.stop_detection()
             return [stop_result[0], *stop_result[1:]]
-
-        def process_video_file(video_path):
-            if not video_path:
-                return [None, "Please upload a video first"]
-            processed_path = detector.process_video(video_path)
-            return [processed_path, "Video processing complete"]
 
         # Define click events
         detect_btn.click(
@@ -306,13 +345,18 @@ def create_interface():
             outputs=[alert, detect_btn, stop_btn]
         )
 
-        process_btn.click(
-            fn=process_video_file,
+        play_btn.click(
+            fn=detector.play_video_with_detection,
             inputs=[video_input],
             outputs=[video_output, alert]
         )
 
-        # Set initial state
+        stop_video_btn.click(
+            fn=detector.stop_video,
+            outputs=[video_output, alert]
+        )
+
+        # Set initial states
         detect_btn.interactive = True
         stop_btn.interactive = False
         
