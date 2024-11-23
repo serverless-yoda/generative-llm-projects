@@ -305,10 +305,6 @@ def create_interface():
         # Alert component
         alert = gr.Textbox(label="Status", interactive=False)
         
-        # Control Buttons for Webcam
-        with gr.Row():
-            detect_btn = gr.Button("Start Webcam", variant="primary")
-            stop_btn = gr.Button("Stop Webcam", variant="stop")
 
         # Input and Output Video Components
         with gr.Tabs():
@@ -316,7 +312,12 @@ def create_interface():
                 with gr.Row():
                     webcam_input = gr.Image(sources=["webcam"], streaming=True, height=400, width=180)
                     webcam_output = gr.Image(label="Detection Output", streaming=True, height=400, width=180)
-            
+
+                # Control Buttons for Webcam
+                with gr.Row():
+                    detect_btn = gr.Button("Start Webcam", variant="primary")
+                    stop_btn = gr.Button("Stop Webcam", variant="stop")
+
             with gr.TabItem("Video Upload"):
                 with gr.Row():
                     video_input = gr.Video(label="Upload Video")
