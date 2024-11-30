@@ -1,0 +1,53 @@
+# Core Database and ORM
+sqlalchemy==1.4.46
+# Use Windows-specific ODBC drivers
+pyodbc==4.0.39  
+
+# Machine Learning Prerequisites
+# Use pre-compiled wheels for Windows
+torch==1.13.1 -f https://download.pytorch.org/whl/cu117/torch_stable.html
+transformers==4.35.2
+numpy==1.23.5
+scipy==1.10.1  # Important for Windows compatibility
+
+# Windows-Friendly NLP Libraries
+spacy==3.5.2
+nltk==3.8.1
+scikit-learn==1.2.2
+
+# Databricks and Spark Integration
+# Ensure compatibility with Windows
+delta-spark==2.3.0
+#pyspark==3.3.2
+
+# Additional Windows-Specific Libraries
+# Use pre-compiled wheels
+pandas==1.5.3
+pyarrow==11.0.0  # Better Windows compatibility
+
+# Visualization and Utility
+matplotlib==3.7.1
+seaborn==0.12.2
+
+# Development Tools
+python-dotenv==0.21.1
+typing-extensions==4.5.0
+
+# Build Tools (Critical for Windows)
+setuptools==67.6.1
+wheel==0.40.0
+
+# Optional: Microsoft Visual C++ Redistributable is recommended
+# Not a pip package, but install from Microsoft website
+
+# Optional Performance
+numba==0.56.4
+
+# Security and Encryption
+cryptography==39.0.2
+
+# Additional Windows Compatibility Libraries
+colorama==0.4.6  # Windows terminal color support
+
+databricks-sql-connector
+databricks-connect
