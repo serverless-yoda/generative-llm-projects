@@ -64,7 +64,6 @@ class AzureKidsStoryVideoGenerator:
         #     azure_endpoint = azure_openai_api_endpoint
         # )
         self.llm = ChatTogether(model="meta-llama/Llama-3-70b-chat-hf", temperature=0)
-
         # Output directory setup
         os.makedirs('outputs/voices', exist_ok=True)
         os.makedirs('outputs/sounds', exist_ok=True)
@@ -151,26 +150,54 @@ class AzureKidsStoryVideoGenerator:
         
         messages = [
                 (
-                    "system", "Yenerate a structured, interactive children's story",
+                    "system", 
+                    "IMPORTANT INSTRUCTIONS: \n"
+                    "1. You MUST respond ONLY in valid JSON format\n"
+                    "2. Strictly follow this JSON structure:\n"
+                    "3. No additional text, comments, or explanations\n"
+                    "4. Ensure valid JSON syntax\n"
+                    "5. Fill out ALL fields completely\n\n"
+                    "JSON SCHEMA: " + 
+                    json.dumps({
+                        "title": "Story Title (string)",
+                        "moral": "Lesson learned (string)",
+                        "characters": [
+                            {
+                                "name": "Character Name (string)",
+                                "personality": "Character Description (string)",
+                                "voice_type": "child/adult/animal (string)",
+                                "intro_dialogue": "First line of dialogue (string)"
+                            }
+                        ],
+                        "scenes": [
+                            {
+                                "description": "Scene setting (string)",
+                                "dialogue": "Key dialogue (string)",
+                                "sound_effects": ["sound effect 1", "sound effect 2"],
+                                "interactive_choices": ["Choice 1", "Choice 2"]
+                            }
+                        ]
+                    }, indent=2)
                 ),
                 (
-                    "assistant","You can read the input and answer in detail."
+                    "assistant", 
+                    "I understand. I will generate the story strictly in the specified JSON format."
                 ),
                 (
-                    "human", f'{prompt}'
-                ),
-        ]
+                    "human", 
+                    f'{prompt}'
+                )
+            ]
 
-        #json_llm = self.llm.bind(response_format={"type": "json_object"})
+                
         result = self.llm.invoke(messages)
-        #data_str = json.dumps(result)
-        print(result.content)
-        with open('outputs/stories/story.txt','w') as file:
-            file.write(data_str)
-
-        with open('outputs/stories/story.txt', 'r') as file:
-             # Read the contents of the file
-            file_contents = file.read()
+        
+        # try:
+        #     story_json = json.loads(result.content)
+        # except json.JSONDecodeError:
+        #     print("Failed to parse JSON. Attempting manual extraction...")
+            
+        self.save_story_to_json(result)
 
         # print(file_contents)
         #return json.loads(story)
@@ -297,12 +324,60 @@ class AzureKidsStoryVideoGenerator:
         final_video.write_videofile(output_path, fps=24)
         
         return output_path
-    
+
+
+    def save_story_to_json(self,result, output_file='outputs/stories/story.json'):
+        """
+        Save the generated story result to a JSON file with the specified structure.
+        
+        :param result: The generated story result from the language model
+        :param output_file: Path to the output JSON file (default: 'story.json')
+        """
+        try:
+            # Check if result is an AIMessage object and extract its content
+            if hasattr(result, 'content'):
+                result_text = result.content
+            elif isinstance(result, str):
+                result_text = result
+            else:
+                raise ValueError("Unsupported result type")
+            
+            # Attempt to parse the result as a JSON object
+            story_data = json.loads(result_text)
+            
+            # Validate the structure matches the expected format
+            required_keys = ['title', 'moral', 'characters', 'scenes']
+            for key in required_keys:
+                if key not in story_data:
+                    raise KeyError(f"Missing required key: {key}")
+            
+            # Write the validated JSON to file
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(story_data, f, indent=4, ensure_ascii=False)
+            
+            print(f"Story saved successfully to {output_file}")
+            return story_data
+        
+        except json.JSONDecodeError:
+            print("Error: Result is not a valid JSON")
+            # Optionally, save the raw text result
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(result_text)
+            print(f"Raw result saved to {output_file}")
+        
+        except KeyError as e:
+            print(f"Validation Error: {e}")
+        
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            # Optionally, print the actual result for debugging
+            print("Result:", result)
+
     def generate_interactive_story_video(self):
         """Main method to generate entire interactive story video"""
         # Generate story structure
         story = self.generate_enhanced_story()
-        
+
         # Generate character voices
         #character_voices = self.generate_character_voices(story)
         
