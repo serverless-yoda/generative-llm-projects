@@ -82,11 +82,13 @@ class AzureKidsStoryVideoGenerator:
             selected_voice = random.choice(voice_options)
             
             # Configure speech synthesis
-            speech_config = SpeechConfig.from_auth(
-                subscription=self.speech_config.subscription, 
-                region=self.speech_config.region
-            )
-            speech_config.speech_synthesis_voice_name = selected_voice
+            #speech_config = SpeechConfig(subscription=self.speech_config.subscription, region=speech_config.region)
+            
+            # speech_config = SpeechConfig.from_auth(
+            #     subscription=self.speech_config.subscription, 
+            #     region=self.speech_config.region
+            # )
+            self.speech_config.speech_synthesis_voice_name = selected_voice
             
             # Create audio output configuration
             voice_file = f"outputs/voices/{character['name']}_voice.wav"
@@ -94,7 +96,7 @@ class AzureKidsStoryVideoGenerator:
             
             # Create speech synthesizer
             synthesizer = SpeechSynthesizer(
-                speech_config=speech_config, 
+                speech_config=self.speech_config, 
                 audio_config=audio_config
             )
             
@@ -376,10 +378,13 @@ class AzureKidsStoryVideoGenerator:
     def generate_interactive_story_video(self):
         """Main method to generate entire interactive story video"""
         # Generate story structure
-        story = self.generate_enhanced_story()
+        #story = self.generate_enhanced_story()
 
-        # Generate character voices
-        #character_voices = self.generate_character_voices(story)
+        with open('outputs/stories/story.json', 'r') as file:
+            data = json.load(file)
+
+        #Generate character voices
+        character_voices = self.generate_character_voices(data)
         
         # Generate sound effects
         #sound_effects = self.generate_sound_effects(story)
