@@ -81,13 +81,6 @@ class AzureKidsStoryVideoGenerator:
             voice_options = self.character_voices.get(voice_type, self.character_voices['child'])
             selected_voice = random.choice(voice_options)
             
-            # Configure speech synthesis
-            #speech_config = SpeechConfig(subscription=self.speech_config.subscription, region=speech_config.region)
-            
-            # speech_config = SpeechConfig.from_auth(
-            #     subscription=self.speech_config.subscription, 
-            #     region=self.speech_config.region
-            # )
             self.speech_config.speech_synthesis_voice_name = selected_voice
             
             # Create audio output configuration
@@ -142,7 +135,11 @@ class AzureKidsStoryVideoGenerator:
             ],
             "scenes": [
                 {
-                    "description": "Scene description",
+                    'setting': 'forest',
+                    'mood': 'peaceful',
+                    'characters': ['Alice', 'Bob'],
+                    'primary_action': 'walking',
+                    'description': 'Alice and Bob stroll through a quiet forest'
                     "dialogue": "Character dialogue",
                     "sound_effects": ["effect1", "effect2"],
                     "interactive_choices": ["Choice 1", "Choice 2"]
@@ -173,6 +170,10 @@ class AzureKidsStoryVideoGenerator:
                         ],
                         "scenes": [
                             {
+                                'setting': 'forest/city/indoor/dramatic (string)',
+                                'mood': 'peaceful/tense/suspenseful (string)',
+                                'characters': ['character1', 'character2'],
+                                'primary_action': 'character action (string)',
                                 "description": "Scene setting (string)",
                                 "dialogue": "Key dialogue (string)",
                                 "sound_effects": ["sound effect 1", "sound effect 2"],
@@ -203,47 +204,200 @@ class AzureKidsStoryVideoGenerator:
 
         # print(file_contents)
         #return json.loads(story)
-    
-    def generate_sound_effects(self, story):
+
+    def log_synthesis_error(self, result):
+        """
+        Log detailed error information for sound effect synthesis.
+        
+        Args:
+            result: Speech synthesis result object
+        """
+        if result.reason == speechsdk.ResultReason.Canceled:
+            cancellation = result.cancellation_details
+            print(f"Speech synthesis canceled: {cancellation.reason}")
+            print(f"Error Code: {cancellation.error_code}")
+            print(f"Error Details: {cancellation.error_details}")
+
+    def generate_sound_effect_prompt(self, scene):
+        """
+        Generate a descriptive prompt for sound effect synthesis based on scene context.
+        
+        Args:
+            scene (dict): A scene dictionary from the story
+        
+        Returns:
+            str: A description to generate an appropriate sound effect
+        """
+        # Extract scene details
+        setting = scene.get('setting', 'default')
+        mood = scene.get('mood', 'neutral')
+        characters = scene.get('characters', [])
+        action = scene.get('primary_action', 'generic movement')
+        
+        # Create a sound effect description
+        sound_prompts = {
+            'forest': [
+                'soft rustling leaves and distant bird calls',
+                'gentle wind through pine trees',
+                'creek bubbling in the background'
+            ],
+            'city': [
+                'distant traffic and urban ambiance',
+                'street noise with occasional car horns',
+                'cafe background chatter'
+            ],
+            'indoor': [
+                'soft background music',
+                'gentle ambient room sounds',
+                'subtle electronic hum'
+            ],
+            'dramatic': [
+                'tense orchestral underscore',
+                'building suspenseful background noise',
+                'ominous low-frequency rumble'
+            ],
+            'default':[
+                'a very peaceful day, only birds chirp and wind can be heard'
+            ]
+        }
+        
+        # Select an appropriate sound prompt based on context
+        base_prompt = ''
+        if mood == 'tense' or mood == 'suspenseful':
+            base_prompt = random.choice(sound_prompts['dramatic'])
+        elif setting in sound_prompts:
+            base_prompt = random.choice(sound_prompts.get(setting, sound_prompts['default']))
+        else:
+             base_prompt = 'neutral background ambient sound'
+        
+        # # Enhance prompt with scene-specific details
+        if characters:
+            base_prompt += f" with subtle hints of {' and '.join(characters)}"
+        
+        base_prompt += f" representing {action}"
+        
+        return base_prompt
+        
+    def generate_scene_sound_effects(self, story):
+        """
+        Generate sound effects for each scene in the story.
+        
+        Args:
+            story (dict): A dictionary containing story scenes
+        
+        Returns:
+            dict: A mapping of scene IDs to their generated sound effect files
+        """
+        scene_sound_effects = {}
+        
+        for scene_index, scene in enumerate(story['scenes']):
+            try:
+                # Generate a unique identifier for the scene
+                scene_id = f"scene_{scene_index}_{uuid.uuid4()}"
+                
+                # Determine the sound effect based on scene description or context
+                scene_description = scene.get('description', 'generic scene')
+                
+                # Use Azure Speech SDK to create scene ambient sound
+                self.speech_config.speech_synthesis_voice_name = "en-US-GuyNeural"  # If available
+                
+                # Create audio output configuration
+                scene_sound_file = f"outputs/scene_sounds/{scene_id}.wav"
+                
+                # Ensure the output directory exists
+                os.makedirs(os.path.dirname(scene_sound_file), exist_ok=True)
+                
+                audio_config = speechsdk.audio.AudioOutputConfig(filename=scene_sound_file)
+                
+                #Create speech synthesizer
+                synthesizer = SpeechSynthesizer(
+                    speech_config=self.speech_config, 
+                    audio_config=audio_config
+                )
+                
+                # Generate sound effect description based on scene context
+                sound_prompt = self.generate_sound_effect_prompt(scene)
+                
+
+                # Synthesize the sound effect
+                result = synthesizer.speak_text_async(sound_prompt).get()
+                
+                if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                    scene_sound_effects[scene_id] = {
+                        'file': scene_sound_file,
+                        'description': sound_prompt,
+                        'voice': self.speech_config.speech_synthesis_voice_name
+                    }
+                    print(f"Generated sound effect for scene {scene_id}")
+                else:
+                    print(f"Sound effect generation failed for scene: {scene_id}")
+                    self.log_synthesis_error(result)
+            
+            except Exception as e:
+                print(f"Error generating sound effect for scene {scene_id}: {e}")
+        
+        return scene_sound_effects
+
+    def _generate_sound_effects(self, story):
         """Generate sound effects using Azure Speech Synthesis with different voice configurations"""
         sound_effects = {}
         
         # Predefined sound effect types
         effect_types = {
-            "magic": "A sparkling magical sound",
-            "happy": "A cheerful, bouncy melody",
-            "sad": "A soft, melancholic tone",
-            "adventure": "An exciting, heroic musical flourish"
+            "magic": "A sparkling, enchanting magical sound",
+            "happy": "A cheerful, bouncy melody that lifts the spirits",
+            "sad": "A soft, melancholic tone that evokes sorrow",
+            "adventure": "An exciting, heroic musical flourish full of energy",
+            "leaves": "The crisp sound of dry leaves crunching underfoot",
+            "robotbeep": "A series of mechanical, electronic beeps from a robot",
+            "dig": "The gritty sound of soil being dug up",
+            "waterdrip": "The rhythmic dripping of water droplets",
+            "bee": "The constant, buzzing hum of a busy bee",
+            "flowers": "The gentle, almost silent blooming of flowers",
+            "watersplash": "The refreshing sound of water splashing",
+            "cheering": "A happy and loud children cheering, full of joy"
         }
-        
+                
         for scene in story['scenes']:
             for effect in scene.get('sound_effects', []):
                 if effect in effect_types:
-                    # Use speech synthesis to create unique sound effect
-                    speech_config = SpeechConfig.from_auth(
-                        subscription=self.speech_config.subscription, 
-                        region=self.speech_config.region
-                    )
+                    try:
+                        # Use a playful child voice for sound effects
+                        self.speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
+                        
+                        # Create audio output configuration
+                        effect_file = f"outputs/sounds/{effect}_{uuid.uuid4()}.wav"
+                        
+                        # Ensure the directory exists
+                        os.makedirs(os.path.dirname(effect_file), exist_ok=True)
+                        
+                        audio_config = speechsdk.audio.AudioOutputConfig(filename=effect_file)
+                        
+                        # Create speech synthesizer
+                        synthesizer = SpeechSynthesizer(
+                            speech_config=self.speech_config, 
+                            audio_config=audio_config
+                        )
+                        
+                        # Synthesize sound effect description
+                        result = synthesizer.speak_text_async(effect_types[effect]).get()
+                        
+                        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                            sound_effects[effect] = effect_file
+                        else:
+                            print(f"Speech synthesis failed for effect: {effect}")
+                            print(f"Reason: {result.reason}")
+                            
+                            # If result is an error, print additional error details
+                            if result.reason == speechsdk.ResultReason.Canceled:
+                                cancellation = result.cancellation_details
+                                print(f"Error details: {cancellation.reason}")
+                                print(f"Error code: {cancellation.error_code}")
+                                print(f"Error message: {cancellation.error_details}")
                     
-                    # Use a playful child voice for sound effects
-                    speech_config.speech_synthesis_voice_name = "en-US-AidenNeural"
-                    
-                    # Create audio output configuration
-                    effect_file = f"outputs/sounds/{effect}_{uuid.uuid4()}.wav"
-                    audio_config = speechsdk.audio.AudioOutputConfig(filename=effect_file)
-                    
-                    # Create speech synthesizer
-                    synthesizer = SpeechSynthesizer(
-                        speech_config=speech_config, 
-                        audio_config=audio_config
-                    )
-                    
-                    # Synthesize sound effect description
-                    result = synthesizer.speak_text_async(effect_types[effect]).get()
-                    
-                    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-                        sound_effects[effect] = effect_file
-        
+                    except Exception as e:
+                        print(f"An error occurred while generating sound effect for {effect}: {e}")
+    
         return sound_effects
     
     def generate_ai_illustrations(self, story):
@@ -327,7 +481,6 @@ class AzureKidsStoryVideoGenerator:
         
         return output_path
 
-
     def save_story_to_json(self,result, output_file='outputs/stories/story.json'):
         """
         Save the generated story result to a JSON file with the specified structure.
@@ -384,10 +537,10 @@ class AzureKidsStoryVideoGenerator:
             data = json.load(file)
 
         #Generate character voices
-        character_voices = self.generate_character_voices(data)
+        #character_voices = self.generate_character_voices(data)
         
         # Generate sound effects
-        #sound_effects = self.generate_sound_effects(story)
+        sound_effects = self.generate_scene_sound_effects(data)
         
         # Generate AI illustrations
         #illustrations = self.generate_ai_illustrations(story)
