@@ -531,13 +531,13 @@ class AzureKidsStoryVideoGenerator:
     def generate_interactive_story_video(self):
         """Main method to generate entire interactive story video"""
         # Generate story structure
-        #story = self.generate_enhanced_story()
+        story = self.generate_enhanced_story()
 
-        with open('outputs/stories/story.json', 'r') as file:
-            data = json.load(file)
+        # with open('outputs/stories/story.json', 'r') as file:
+        #     data = json.load(file)
 
         #Generate character voices
-        #character_voices = self.generate_character_voices(data)
+        character_voices = self.generate_character_voices(data)
         
         # Generate sound effects
         sound_effects = self.generate_scene_sound_effects(data)
